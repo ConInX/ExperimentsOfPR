@@ -22,12 +22,38 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC
 import os
 import sys
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 # global config
 raw_data='filter-raw-data.txt'
 accept_data = 'accept_predict.csv'
 response_data = 'response_data.csv'
 
-
+project_list=[
+                'NixOS/nixpkgs', 
+                'django/django',
+                'facebook/react',
+                #'angular/angular.js',
+                'saltstack/salt',
+                'cms-sw/cmssw',
+                #'laravel/framework',
+                'scikit-learn/scikit-learn',
+                'cdnjs/cdnjs',
+                'hashicorp/terraform',
+                #'githubschool/open-enrollment-classes-introduction-to-github',
+                'kubernetes/kubernetes',
+                'rust-lang/rust',
+                'rails/rails',
+                'moby/moby',
+                'symfony/symfony',
+                #'TheOdinProject/curriculum',
+                #'opencv/opencv',
+                'tensorflow/tensorflow',
+                'pandas-dev/pandas',
+                'yiisoft/yii2'
+              ]
 def generate_accept_data(project_full_name, start_time,end_time):
     model = gensim.models.Word2Vec.load('word2vec_model')
     count = 0
@@ -66,8 +92,138 @@ def generate_accept_data(project_full_name, start_time,end_time):
             load_dict = json.loads(line)
             #count = count + 1
             #print(count)
-            if load_dict['url'].find(project_full_name) != -1 and time.strptime(str(load_dict['Timeline'][1]['Created_At'])[2:-2],"%Y-%m-%dT%H:%M:%SZ") >= start_time:
-              continue
+            for project in project_list:
+              if load_dict['url'].find(project) == -1 or time.strptime(str(load_dict['Timeline'][1]['Created_At'])[2:-2],"%Y-%m-%dT%H:%M:%SZ") >= start_time:
+                continue
+              if load_dict['Title']:
+                load_dict['Title'] = load_dict['Title'].replace("[\\p{P}+~$`^=|×]"," ")
+              if load_dict['Comments_Embedding']:
+                load_dict['Comments_Embedding'] = load_dict['Comments_Embedding'].replace("[\\p{P}+~$`^=|×]"," ")
+              if load_dict['Body']:
+                load_dict['Body'] = load_dict['Body'].replace("[\\p{P}+~$`^=|<×]"," ")
+              if load_dict['Review_Comments_Embedding']:
+                load_dict['Review_Comments_Embedding'] = load_dict['Review_Comments_Embedding'].replace("[\\p{P}+~$`^=|×]"," ")
+              pattern = re.compile('^[a-zA-Z0-9]+$')
+              size_TAB = 0
+              size_CAR = 0
+              list_Title=[0,0,0,0,0,0,0,0,0,0]
+              if load_dict['Title']:
+                for item in load_dict['Title'].split(" "):
+                  if pattern.match(item) and item in model:
+                    list_Title = [a+b for a,b in zip(model[item],list_Title)]
+              if load_dict['Title']:
+                size_TAB = size_TAB + len(load_dict['Title'].split(" "))
+              list_Comments_Embedding = [0,0,0,0,0,0,0,0,0,0]
+              if load_dict['Comments_Embedding']:
+                for item in load_dict['Comments_Embedding'].split(" "):
+                  if pattern.match(item) and item in model:
+                    list_Comments_Embedding = [a+b for a,b in zip(model[item],list_Comments_Embedding)]
+              if load_dict['Comments_Embedding']:
+                size_CAR = size_CAR + len(load_dict['Comments_Embedding'].split(" "))
+              list_Body=[0,0,0,0,0,0,0,0,0,0]
+              if load_dict['Body']:
+                for item in load_dict['Body'].split(" "):
+                  if pattern.match(item) and item in model:
+                    list_Body = [a+b for a,b in zip(model[item],list_Body)]
+              if load_dict['Body']:        
+                size_TAB = size_TAB + len(load_dict['Body'].split(" "))
+              list_Review_Comments_Embedding=[0,0,0,0,0,0,0,0,0,0]
+              if load_dict['Review_Comments_Embedding']:
+                for item in load_dict['Review_Comments_Embedding'].split(" "):
+                  if pattern.match(item) and item in model:
+                    list_Review_Comments_Embedding = [a+b for a,b in zip(model[item],list_Review_Comments_Embedding)]
+              if load_dict['Review_Comments_Embedding']:    
+                size_CAR = size_CAR + len(load_dict['Review_Comments_Embedding'].split(" "))
+              list_TAB = [a+b for a,b in zip(list_Title,list_Body)]
+              for value in list_TAB:
+                if value != 0:
+                  value = value/size_TAB
+              load_dict['X1_0'] = list_TAB[0]
+              load_dict['X1_1'] = list_TAB[1]
+              load_dict['X1_2'] = list_TAB[2]
+              load_dict['X1_3'] = list_TAB[3]
+              load_dict['X1_4'] = list_TAB[4]
+              load_dict['X1_5'] = list_TAB[5]
+              load_dict['X1_6'] = list_TAB[6]
+              load_dict['X1_7'] = list_TAB[7]
+              load_dict['X1_8'] = list_TAB[8]
+              load_dict['X1_9'] = list_TAB[9]
+              list_CAR = [a+b for a,b in zip(list_Comments_Embedding,list_Review_Comments_Embedding)]
+              for value in list_CAR:
+                if value != 0:
+                  value = value/size_CAR
+              load_dict['X2_0'] = list_CAR[0]
+              load_dict['X2_1'] = list_CAR[1]
+              load_dict['X2_2'] = list_CAR[2]
+              load_dict['X2_3'] = list_CAR[3]
+              load_dict['X2_4'] = list_CAR[4]
+              load_dict['X2_5'] = list_CAR[5]
+              load_dict['X2_6'] = list_CAR[6]
+              load_dict['X2_7'] = list_CAR[7]
+              load_dict['X2_8'] = list_CAR[8]
+              load_dict['X2_9'] = list_CAR[9]
+              f_csv.writerow(load_dict)
+              break
+        except Exception as e:
+            print(e)
+            continue    
+
+
+
+def generate_response_data(project_full_name, start_time, end_time):
+  model = gensim.models.Word2Vec.load('word2vec_model')
+  count = 0
+  file = open(raw_data,"r")
+  fieldnames = []
+  for line in file.readlines():
+    load_dict = json.loads(line)
+    fieldnames = list(load_dict.keys())
+    break
+  fieldnames.append('X1_0')
+  fieldnames.append('X1_1')
+  fieldnames.append('X1_2')
+  fieldnames.append('X1_3')
+  fieldnames.append('X1_4')
+  fieldnames.append('X1_5')
+  fieldnames.append('X1_6')
+  fieldnames.append('X1_7')
+  fieldnames.append('X1_8')
+  fieldnames.append('X1_9')
+  fieldnames.append('X2_0')
+  fieldnames.append('X2_1')
+  fieldnames.append('X2_2')
+  fieldnames.append('X2_3')
+  fieldnames.append('X2_4')
+  fieldnames.append('X2_5')
+  fieldnames.append('X2_6')
+  fieldnames.append('X2_7')
+  fieldnames.append('X2_8')
+  fieldnames.append('X2_9')
+  fieldnames.append('wait_time_up')
+  fieldnames.append('wait_time_label')
+  file = open(raw_data,"r")
+  with open(response_data,'w',newline='',errors='ignore') as f:
+    f_csv = csv.DictWriter(f,fieldnames=fieldnames)
+    f_csv.writeheader()
+    for line in file.readlines():
+      try:
+          load_dict = json.loads(line)
+          #count = count + 1
+          #print(load_dict['url'])
+          for project in project_list:
+            if load_dict['url'].find(project) != -1 or time.strptime(str(load_dict['Timeline'][1]['Created_At'])[2:-2],"%Y-%m-%dT%H:%M:%SZ") >= start_time:
+                continue
+            Wait_Time = {}
+            #print(count)
+            #print("{}".format(count))
+            time_length = int((time.mktime(time.strptime(str(load_dict['Timeline'][1]['Created_At'])[2:-2],"%Y-%m-%dT%H:%M:%SZ"))-time.mktime(time.strptime(str(load_dict['Timeline'][0]['Created_At'])[2:-2],"%Y-%m-%dT%H:%M:%SZ")))/3600/24)
+            #print(len(load_dict['Timeline']))
+            for item in range(1,len(load_dict['Timeline'])):
+              #print(item)
+              tmp_list = eval(str(load_dict['Timeline'][item]['Created_At']))
+              #print(tmp_list)
+              for i in tmp_list:
+                Wait_Time[int((time.mktime(time.strptime(i,"%Y-%m-%dT%H:%M:%SZ"))-time.mktime(time.strptime(str(load_dict['Timeline'][0]['Created_At'])[2:-2],"%Y-%m-%dT%H:%M:%SZ")))/3600/24)] = True
             if load_dict['Title']:
               load_dict['Title'] = load_dict['Title'].replace("[\\p{P}+~$`^=|×]"," ")
             if load_dict['Comments_Embedding']:
@@ -135,144 +291,18 @@ def generate_accept_data(project_full_name, start_time,end_time):
             load_dict['X2_7'] = list_CAR[7]
             load_dict['X2_8'] = list_CAR[8]
             load_dict['X2_9'] = list_CAR[9]
-            f_csv.writerow(load_dict)
-        except Exception as e:
-            print(e)
-            continue    
-
-
-
-def generate_response_data(project_full_name, start_time, end_time):
-  model = gensim.models.Word2Vec.load('word2vec_model')
-  count = 0
-  file = open(raw_data,"r")
-  fieldnames = []
-  for line in file.readlines():
-    load_dict = json.loads(line)
-    fieldnames = list(load_dict.keys())
-    break
-  fieldnames.append('X1_0')
-  fieldnames.append('X1_1')
-  fieldnames.append('X1_2')
-  fieldnames.append('X1_3')
-  fieldnames.append('X1_4')
-  fieldnames.append('X1_5')
-  fieldnames.append('X1_6')
-  fieldnames.append('X1_7')
-  fieldnames.append('X1_8')
-  fieldnames.append('X1_9')
-  fieldnames.append('X2_0')
-  fieldnames.append('X2_1')
-  fieldnames.append('X2_2')
-  fieldnames.append('X2_3')
-  fieldnames.append('X2_4')
-  fieldnames.append('X2_5')
-  fieldnames.append('X2_6')
-  fieldnames.append('X2_7')
-  fieldnames.append('X2_8')
-  fieldnames.append('X2_9')
-  fieldnames.append('wait_time_up')
-  fieldnames.append('wait_time_label')
-  file = open(raw_data,"r")
-  with open(response_data,'w',newline='',errors='ignore') as f:
-    f_csv = csv.DictWriter(f,fieldnames=fieldnames)
-    f_csv.writeheader()
-    for line in file.readlines():
-      try:
-          load_dict = json.loads(line)
-          #count = count + 1
-          #print(load_dict['url'])
-          if load_dict['url'].find(project_full_name) != -1 and time.strptime(str(load_dict['Timeline'][1]['Created_At'])[2:-2],"%Y-%m-%dT%H:%M:%SZ") >= start_time:
-              continue
-          Wait_Time = {}
-          #print(count)
-          #print("{}".format(count))
-          time_length = int((time.mktime(time.strptime(str(load_dict['Timeline'][1]['Created_At'])[2:-2],"%Y-%m-%dT%H:%M:%SZ"))-time.mktime(time.strptime(str(load_dict['Timeline'][0]['Created_At'])[2:-2],"%Y-%m-%dT%H:%M:%SZ")))/3600/24)
-          #print(len(load_dict['Timeline']))
-          for item in range(1,len(load_dict['Timeline'])):
-            #print(item)
-            tmp_list = eval(str(load_dict['Timeline'][item]['Created_At']))
-            #print(tmp_list)
-            for i in tmp_list:
-              Wait_Time[int((time.mktime(time.strptime(i,"%Y-%m-%dT%H:%M:%SZ"))-time.mktime(time.strptime(str(load_dict['Timeline'][0]['Created_At'])[2:-2],"%Y-%m-%dT%H:%M:%SZ")))/3600/24)] = True
-          if load_dict['Title']:
-            load_dict['Title'] = load_dict['Title'].replace("[\\p{P}+~$`^=|×]"," ")
-          if load_dict['Comments_Embedding']:
-            load_dict['Comments_Embedding'] = load_dict['Comments_Embedding'].replace("[\\p{P}+~$`^=|×]"," ")
-          if load_dict['Body']:
-            load_dict['Body'] = load_dict['Body'].replace("[\\p{P}+~$`^=|<×]"," ")
-          if load_dict['Review_Comments_Embedding']:
-            load_dict['Review_Comments_Embedding'] = load_dict['Review_Comments_Embedding'].replace("[\\p{P}+~$`^=|×]"," ")
-          pattern = re.compile('^[a-zA-Z0-9]+$')
-          size_TAB = 0
-          size_CAR = 0
-          list_Title=[0,0,0,0,0,0,0,0,0,0]
-          if load_dict['Title']:
-            for item in load_dict['Title'].split(" "):
-              if pattern.match(item) and item in model:
-                list_Title = [a+b for a,b in zip(model[item],list_Title)]
-          if load_dict['Title']:
-            size_TAB = size_TAB + len(load_dict['Title'].split(" "))
-          list_Comments_Embedding = [0,0,0,0,0,0,0,0,0,0]
-          if load_dict['Comments_Embedding']:
-            for item in load_dict['Comments_Embedding'].split(" "):
-              if pattern.match(item) and item in model:
-                list_Comments_Embedding = [a+b for a,b in zip(model[item],list_Comments_Embedding)]
-          if load_dict['Comments_Embedding']:
-            size_CAR = size_CAR + len(load_dict['Comments_Embedding'].split(" "))
-          list_Body=[0,0,0,0,0,0,0,0,0,0]
-          if load_dict['Body']:
-            for item in load_dict['Body'].split(" "):
-              if pattern.match(item) and item in model:
-                list_Body = [a+b for a,b in zip(model[item],list_Body)]
-          if load_dict['Body']:        
-            size_TAB = size_TAB + len(load_dict['Body'].split(" "))
-          list_Review_Comments_Embedding=[0,0,0,0,0,0,0,0,0,0]
-          if load_dict['Review_Comments_Embedding']:
-            for item in load_dict['Review_Comments_Embedding'].split(" "):
-              if pattern.match(item) and item in model:
-                list_Review_Comments_Embedding = [a+b for a,b in zip(model[item],list_Review_Comments_Embedding)]
-          if load_dict['Review_Comments_Embedding']:    
-            size_CAR = size_CAR + len(load_dict['Review_Comments_Embedding'].split(" "))
-          list_TAB = [a+b for a,b in zip(list_Title,list_Body)]
-          for value in list_TAB:
-            if value != 0:
-              value = value/size_TAB
-          load_dict['X1_0'] = list_TAB[0]
-          load_dict['X1_1'] = list_TAB[1]
-          load_dict['X1_2'] = list_TAB[2]
-          load_dict['X1_3'] = list_TAB[3]
-          load_dict['X1_4'] = list_TAB[4]
-          load_dict['X1_5'] = list_TAB[5]
-          load_dict['X1_6'] = list_TAB[6]
-          load_dict['X1_7'] = list_TAB[7]
-          load_dict['X1_8'] = list_TAB[8]
-          load_dict['X1_9'] = list_TAB[9]
-          list_CAR = [a+b for a,b in zip(list_Comments_Embedding,list_Review_Comments_Embedding)]
-          for value in list_CAR:
-            if value != 0:
-              value = value/size_CAR
-          load_dict['X2_0'] = list_CAR[0]
-          load_dict['X2_1'] = list_CAR[1]
-          load_dict['X2_2'] = list_CAR[2]
-          load_dict['X2_3'] = list_CAR[3]
-          load_dict['X2_4'] = list_CAR[4]
-          load_dict['X2_5'] = list_CAR[5]
-          load_dict['X2_6'] = list_CAR[6]
-          load_dict['X2_7'] = list_CAR[7]
-          load_dict['X2_8'] = list_CAR[8]
-          load_dict['X2_9'] = list_CAR[9]
-          if time_length < 10:
-              time_length = time_length
-          else:
-              time_length = 10
-          for wait_time in range(time_length):
-              load_dict['wait_time_up'] = wait_time
-              load_dict['wait_time_label'] = False
-              load_dict['Day']=((time.strptime(str(load_dict['Timeline'][0]['Created_At'])[2:-2],"%Y-%m-%dT%H:%M:%SZ"))[6]+wait_time)%7
-              if wait_time in Wait_Time.keys():
-                  load_dict['wait_time_label'] = True
-              f_csv.writerow(load_dict)
+            if time_length < 10:
+                time_length = time_length
+            else:
+                time_length = 10
+            for wait_time in range(time_length):
+                load_dict['wait_time_up'] = wait_time
+                load_dict['wait_time_label'] = False
+                load_dict['Day']=((time.strptime(str(load_dict['Timeline'][0]['Created_At'])[2:-2],"%Y-%m-%dT%H:%M:%SZ"))[6]+wait_time)%7
+                if wait_time in Wait_Time.keys():
+                    load_dict['wait_time_label'] = True
+                f_csv.writerow(load_dict)
+            break
       except Exception as e:
           print(e)
           continue
@@ -784,7 +814,7 @@ def predict_and_sort(project_full_name, start_time, end_time):
 
 
   def traind_and_predict():
-    os.mkdir('paixu/result/result_{}_{}_{}'.format(project_full_name.replace('/','_'), start_time[0], start_time[1]))
+    os.mkdir('paixu/result/{}_{}_{}'.format(project_full_name.replace('/','_'), start_time[0], start_time[1]))
     classifiers = get_classifiers()
     for name,clf in classifiers.items():
       for i in range(0,32):
@@ -804,11 +834,155 @@ def predict_and_sort(project_full_name, start_time, end_time):
           result = pd.concat([result,data],axis = 1)
           result['result'] = result['result'].astype('float')
           result=result.sort_values(by=['result'],ascending =False)
-          result.to_csv('paixu/result/result_{}_{}_{}/{}_{}_{}.csv'.format(project_full_name.replace('/','_'), start_time[0], start_time[1], date_time_start[0], date_time_start[1], date_time_start[2]))
+          result.to_csv('paixu/result/{}_{}_{}/{}_{}_{}.csv'.format(project_full_name.replace('/','_'), start_time[0], start_time[1], date_time_start[0], date_time_start[1], date_time_start[2]))
         except Exception as e:
           print(e)
           continue
   traind_and_predict()
+
+def draw_picture(time_path, result_path):
+  # Four Types of Sample, Accept InterCross with Response as Below:
+  #   Accept and Response
+  #   Accept and Not Response
+  #   Not Accept and Response
+  #   Not Accept and Not Response
+
+  pic_name = time_path.split('/')[-1]
+  print('pic_name:{}'.format(pic_name))
+  # Get Average Recall by Path
+  def get_average_recall_and_max_range(path):
+    accept_response_average_recall=[]
+    accept_not_response_average_recall = []
+    not_accept_response_average_recall = []
+    not_accept_not_response_average_recall = []
+    max_range = 0
+    for dirpath, dirnames, filenames in os.walk(path):
+      # Get Max Number of Pull Requests
+      max_range = 0
+      total_accept_response = []
+      total_accept_not_response = []
+      total_not_accept_response = []
+      total_not_accept_not_response = []
+      for file in filenames:
+        data = pd.read_csv(path+'/'+file)
+        max_range = max(max_range, len(data))
+        response_label=data['Response_Label']
+        accept_label=data['Label']
+        tmp_total_accept_response = 0
+        tmp_total_accept_not_response = 0
+        tmp_total_not_accept_response = 0
+        tmp_total_not_accept_not_response = 0
+        if len(accept_label) != len(response_label):
+          raise Exception
+      # Calculate Recall of Four Types of Sample in Every Day of One Month, Ranges According to the Length of Recommendation List
+        for index in range(len(accept_label)):
+          if accept_label[index] == 1 and response_label[index] == 1:
+            tmp_total_accept_response+=1
+          elif accept_label[index] == 1 and response_label[index] == 0:
+            tmp_total_accept_not_response+=1
+          elif accept_label[index] == 0  and response_label[index] ==1:
+            tmp_total_not_accept_response +=1
+          elif accept_label[index] == 0  and response_label[index] == 0:
+            tmp_total_not_accept_not_response+=1
+        total_accept_response.append(tmp_total_accept_response)
+        total_accept_not_response.append(tmp_total_accept_not_response)
+        total_not_accept_response.append(tmp_total_not_accept_response)
+        total_not_accept_not_response.append(tmp_total_not_accept_not_response)
+
+      for index in range(max_range):
+        accept_response_list = []
+        accept_not_response_list = []
+        not_accept_response_list = []
+        not_accept_not_response_list = []
+        count = 0
+        file_index = 0
+        for file in filenames:
+          data = pd.read_csv(path+'/'+file)
+          response_label=data['Response_Label']
+          accept_label=data['Label']
+          accept_response = 0
+          accept_not_response = 0
+          not_accept_response = 0
+          not_accept_not_response = 0
+
+          if len(accept_label) != len(response_label):
+            raise Exception
+          
+          for item in range(index):
+            if index > len(accept_label): 
+              accept_response=total_accept_response[file_index]
+              accept_not_response=total_accept_not_response[file_index]
+              not_accept_not_response=total_not_accept_not_response[file_index]
+              not_accept_response=total_not_accept_response[file_index]
+              break
+            if accept_label[item] == 1 and response_label[item] == 1:
+              accept_response +=1
+            elif accept_label[item] == 1 and response_label[item] == 0:
+              accept_not_response+=1
+            elif accept_label[item] == 0 and response_label[item] == 1:
+              not_accept_response+=1
+            elif accept_label[item] == 0 and response_label[item] == 0:
+              not_accept_not_response+=1
+          print('{}:{},{}:{}'.format(accept_not_response,not_accept_response,total_accept_not_response[file_index],total_not_accept_response[file_index])) 
+          accept_response_list.append(accept_response / total_accept_response[file_index] if total_accept_response[file_index] !=0 else 1 )
+          accept_not_response_list.append(accept_not_response / total_accept_not_response[file_index] if total_accept_not_response[file_index]!=0 else 1)
+          not_accept_response_list.append(not_accept_response / total_not_accept_response[file_index] if total_not_accept_response[file_index]!=0 else 1)
+          not_accept_not_response_list.append(not_accept_not_response / total_not_accept_not_response[file_index] if total_not_accept_not_response[file_index]!=0 else 1)
+          file_index+=1
+        accept_response_average_recall.append(np.mean(accept_response_list))
+        accept_not_response_average_recall.append(np.mean(accept_not_response_list))
+        not_accept_response_average_recall.append(np.mean(not_accept_response_list))
+        not_accept_not_response_average_recall.append(np.mean(not_accept_not_response_list))
+    return (
+        accept_response_average_recall,
+        accept_not_response_average_recall,
+        not_accept_response_average_recall,
+        not_accept_not_response_average_recall,
+        max_range
+      )
+  # Draw Picture
+  time_average_recall = get_average_recall_and_max_range(time_path)
+  our_algorithm_average_recall = get_average_recall_and_max_range(result_path)
+  plt.figure(figsize=(20,10))
+  plt.suptitle("Average-Recall-Top-N(by Created Time vs Our Alogrithm)")
+  plt.subplot(121)  
+  plt.plot(list(range(time_average_recall[4])), time_average_recall[0], color='b',ls='-', label='accept and response')  
+  plt.plot(list(range(time_average_recall[4])), time_average_recall[1], color='g', ls='--', label='accept and not response')  
+  plt.plot(list(range(time_average_recall[4])), time_average_recall[2], color='r', ls=':', label='not accept and response')
+  plt.plot(list(range(time_average_recall[4])), time_average_recall[3], color='k',  ls='-.', label='not accept and not response')
+  #plt.plot(x,results,'b')  
+  plt.xlabel("Top-N")  
+  plt.ylabel("value(Average Recall)")  
+  #plt.title("Average-Recall-Top-N(Prioritized by Created Time)")
+  plt.subplot(122)
+  plt.plot(list(range(our_algorithm_average_recall[4])), our_algorithm_average_recall[0], color='b', ls='-', label='accept and response')  
+  plt.plot(list(range(our_algorithm_average_recall[4])), our_algorithm_average_recall[1], color='g', ls='--', label='accept and not response')  
+  plt.plot(list(range(our_algorithm_average_recall[4])), our_algorithm_average_recall[2], color='r', ls=':', label='not accept and response')
+  plt.plot(list(range(our_algorithm_average_recall[4])), our_algorithm_average_recall[3], color='k', ls='-.', label='not accept and not response')
+  #plt.plot(x,results,'b')  
+  plt.xlabel("Top-N")  
+  plt.ylabel("value(Average Recall)")  
+  #plt.title("Average-Recall-Top-N(Our Algorithm)")
+  plt.legend() 
+  plt.savefig('pictures/'+pic_name+'.png')
+
+def sort_by_created_time(project, start_time, end_time):
+  os.mkdir('paixu/time/{}_{}_{}'.format(project.replace('/','_'), start_time[0],start_time[1]))
+  source_path = 'paixu/data/{}_{}_{}'.format(project.replace('/','_'), start_time[0],start_time[1])
+  for dirpath, dirnames, filenames in os.walk(source_path):
+      for file in filenames:
+        # Convert Creation Date to Timestamps, Then Sort, Save to 'paixu/time/'
+          if os.path.splitext(file)[1] =='.csv':
+              data = pd.read_csv(source_path+'/'+file)
+              result=[]
+              for item in data['Timeline']:
+                  result.append(time.mktime(time.strptime(eval(item)[0]['Created_At'][0],"%Y-%m-%dT%H:%M:%SZ")))
+              result={'result':result}
+              result = DataFrame(result)
+              result = pd.concat([result,data],axis = 1)
+              result['result'] = result['result'].astype('float')
+              result = result.sort_values(by=['result'], ascending = True)
+              result.to_csv('paixu/time/{}_{}_{}/{}'.format(project.replace('/','_'), start_time[0],start_time[1],file))
 
 
 if __name__ == '__main__':
@@ -822,49 +996,36 @@ if __name__ == '__main__':
               "2018-02-01T00:00:00Z",
               "2018-03-01T00:00:00Z"
             ]
-  project_list=[
-                'NixOS/nixpkgs', 
-                'django/django',
-                'facebook/react',
-                'angular/angular.js',
-                'saltstack/salt',
-                'cms-sw/cmssw',
-                'laravel/framework',
-                'scikit-learn/scikit-learn',
-                'cdnjs/cdnjs',
-                'hashicorp/terraform',
-                'githubschool/open-enrollment-classes-introduction-to-github',
-                'kubernetes/kubernetes',
-                'rust-lang/rust',
-                'rails/rails',
-                'moby/moby',
-                'symfony/symfony',
-                'TheOdinProject/curriculum',
-                'opencv/opencv',
-                'tensorflow/tensorflow',
-                'pandas-dev/pandas'
-                ]
-      #yi
+
+  # Generate Training Data and Trian Models
+  start_time = time.strptime("2017-09-01T00:00:00Z","%Y-%m-%dT%H:%M:%SZ")
+  end_time = time.strptime("2017-09-01T00:00:00Z","%Y-%m-%dT%H:%M:%SZ")
+  print('{}_{} generate_accept_data...'.format("yiisoft/yii2", date_list[0]))
+  generate_accept_data('yiisoft/yii2', start_time, end_time)
+
+  print('{}_{} generate_response_data...'.format('yiisoft/yii2',date_list[0]))
+  generate_response_data('yiisoft/yii2', start_time, end_time)
+
+  print('{}_{} train_accept_model...'.format('yiisoft/yii2',date_list[0]))
+  train_accept_model()
+
+  print('{}_{} train_response_model...'.format('yiisoft/yii2',date_list[0]))
+  train_response_model()
+
+  # For Each Project, Imply our Algorithm to Prioritize Pull Requests
   for i in range(0,len(date_list)-1):
-    print('{}_{} processing...'.format('yiisoft/yii2',date_list[i]))
     start_time=time.strptime(date_list[i],"%Y-%m-%dT%H:%M:%SZ")
     end_time=time.strptime(date_list[i+1],"%Y-%m-%dT%H:%M:%SZ")
+    for project in project_list:
 
-    print('{}_{} generate_accept_data...'.format('yiisoft/yii2',date_list[i]))
-    generate_accept_data('yiisoft/yii2', start_time, end_time)
+      print('{}_{} generate sort data...'.format(project, date_list[i]))
+      generate_sort_data(project,start_time, end_time)      
 
-    print('{}_{} generate_response_data...'.format('yiisoft/yii2',date_list[i]))
-    generate_response_data('yiisoft/yii2', start_time, end_time)
+      print('{}_{} sort by created time...'.format(project, date_list[i]))
+      sort_by_created_time(project, start_time, end_time)
 
-    print('{}_{} generate_sort_data...'.format('yiisoft/yii2',date_list[i]))
-    generate_sort_data('yiisoft/yii2', start_time, end_time)
-
-    print('{}_{} train_accept_model...'.format('yiisoft/yii2',date_list[i]))
-    train_accept_model()
-
-    print('{}_{} train_response_model...'.format('yiisoft/yii2',date_list[i]))
-    train_response_model()
-
-    print('{}_{} predict_and_sort...'.format('yiisoft/yii2',date_list[i]))
-    predict_and_sort('yiisoft/yii2', start_time, end_time)
-
+      print('{}_{} predict_and_sort...'.format(project,date_list[i]))
+      predict_and_sort(project, start_time, end_time)
+      
+      print('{}_{} draw picture...'.format(project, date_list[i]))
+      draw_picture('paixu/time/{}_{}_{}'.format(project.replace('/','_'), start_time[0],start_time[1]), 'paixu/result/{}_{}_{}'.format(project.replace('/','_'), start_time[0],start_time[1]))
