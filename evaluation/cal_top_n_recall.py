@@ -46,27 +46,33 @@ if __name__== '__main__':
             # positive_count_accept=0
             # positive_count_response=0
             positive_count_accept_response=0
+            top_recall_num=0
+            total_recall_num=0
             for j in range(0,len(score)):
-                    if j >=args.top_n: break
+                    if accept_label[j] == 1 and response_label[j] ==1:
+                        if j<args.top_n:
+                            top_recall_num+=1
+                        total_recall_num+=1
+                    
                     # if accept_label[j]==1:
                     #         positive_count_accept+=1
                     #         mAP_accept+= positive_count_accept/(j+1)
                     # if response_label[j]==1:
                     #         positive_count_response+=1
                     #         mAP_response+= positive_count_response/(j+1)
-                    if accept_label[j]==1 and response_label[j] == 1:
-                            positive_count_accept_response+=1
-                            mAP_accept_response+= positive_count_accept_response/(j+1)
+                    #if accept_label[j]==1 and response_label[j] == 1:
+                    #        positive_count_accept_response+=1
+                    #        mAP_accept_response+= positive_count_accept_response/(j+1)
             # results_accept.append(mAP_accept/positive_count_accept if positive_count_accept !=0 else 0)
             # results_response.append(mAP_response/positive_count_response if positive_count_response !=0 else 0)
-            result_tmp.append(mAP_accept_response/positive_count_accept_response if positive_count_accept_response !=0 else 0)
+            result_tmp.append(top_recall_num/total_recall_num if total_recall_num !=0 else 0)
             #if positive_count_accept_response !=0:
             #    result_tmp.append(mAP_accept_response/positive_count_accept_response)
         dict_tmp['score']=result_tmp
         print(json.dumps(dict_tmp))
         if dict_tmp['name'] not in result_ap.keys():
-            result_ap[dict_tmp['name']] = [] 
-        result_ap[dict_tmp['name']].append(result_tmp) 
+            result_ap[dict_tmp['name']]=[]
+        result_ap[dict_tmp['name']].append(result_tmp)
     for key in result_ap.keys():
         print(key, [np.mean(item) for item in result_ap[key]])
     #fig = plt.figure()
